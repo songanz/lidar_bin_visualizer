@@ -1,3 +1,7 @@
+"""
+For reduce lidar sensor frame (ring)
+"""
+
 import unittest
 import pcl
 import numpy as np
@@ -72,12 +76,47 @@ class loader_visualizer(unittest.TestCase):
         viewer.close()
 
 
+def reduce_ring(cloud, idx, file):
+    cloud_np = cloud.xyz
+    deg_group, deg_group_idx = vertical_degree(cloud_np, 128)  # group to 128 equally splitted groups
+    for i in range(np.floor(128/idx).astype(int)):
+        # file.write(cloud_np[deg_group_idx[i*idx+np.random.randint(4)],:])
+        file.write(cloud_np[deg_group_idx[i*idx],:])
+    file.close()
+
+
+def vertical_degree(pc_np, idx):
+    # j = []
+    deg = []
+    for i in range(pc_np.shape[0]):
+        # if np.arctan(pc_np[i,2]/np.sqrt(pc_np[i,0]**2 + pc_np[i,1]**2)) == np.nan:
+        if np.sqrt(pc_np[i,0]**2 + pc_np[i,1]**2) != 0.0:
+            # j.append(i)
+            deg.append(np.arctan(pc_np[i, 2] / np.sqrt(pc_np[i, 0] ** 2 + pc_np[i, 1] ** 2)))
+        # else:
+        #     deg.append(np.arctan(pc_np[i,2]/np.sqrt(pc_np[i,0]**2 + pc_np[i,1]**2)))
+    # pc_np = np.delete(pc_np,j,0)
+    # deg_max = max(deg)
+    # deg_min = min(deg)
+    # deg = np.arctan(pc_np[:,2]/np.sqrt(pc_np[:,0]**2 + pc_np[:,1]**2))
+    deg_sep = np.linspace(0, len(deg), num = idx+1).astype(int)
+    deg_sep = deg_sep[1:-1]
+
+    deg_sorted = np.sort(deg)
+    deg_sorted_idx = np.argsort(deg)
+
+    deg_group = np.split(deg_sorted, deg_sep)
+    deg_group_idx = np.split(deg_sorted_idx, deg_sep)
+
+    return deg_group, deg_group_idx
+
+
 if __name__ == "__main__":
     dir_apollo = "/media/songanz/New Volume/data/Apollo/3d-sample-lidar/"
     dir_kitti = "/media/songanz/New Volume/data/KITTI/Object/training/"
-    dir_night = "/media/songanz/New Volume/data/Mcity_data/Batch4_Tagged_to_be_annotated/velodyne/"
+    dir_night = "/media/songanz/New Volume/data/Mcity_data/12_05/Original_Large_Files/binary/"
 
-    frame = 0
+    frame = 20
 
     filename_apollo = dir_apollo + "bin_files/" + "002_%08d" % frame + ".bin"
     labelfile_apollo = dir_apollo + "label_file/" + "002_%08d" % frame + ".bin.txt"
@@ -85,16 +124,24 @@ if __name__ == "__main__":
     filename_kitti = dir_kitti + "velodyne/" + "%06d" % frame + ".bin"
     labelfile_kitti = dir_kitti + "label_2/" + "%06d" % frame + ".txt"
 
-    # filename_night = dir_night + "%06d" % frame + ".bin"
-    filename_night = dir_night + "12_15_1_000271.bin"
+    filename_night = dir_night + "%06d" % frame + ".bin"
 
     cloud_apollo = pcl.load_bin(filename_apollo, "xyzi")
     cloud_kitti = pcl.load_bin(filename_kitti, "xyzi")
-    cloud_night = pcl.load_bin(filename_night, 'xyzi')
+    cloud_night = pcl.load_bin(filename_night, "xyzi")
+
+    file = open("test.bin", "wb")
+
+    # for reduce to /8 rings
+    reduce_ring(cloud_kitti, 8, file)
+
+    # for testing
+    # cloud_test = pcl.load_bin("/media/songanz/New Volume/data/KITTI/Object/gt_database/7293_Car_0.bin", "xyzi")
+    cloud_test = pcl.load_bin("test.bin", "xyzi")
 
     visualizer = loader_visualizer()
 
     # visualizer.test_add_callback(cloud_apollo, labelfile_apollo, "apollo")
     # TODO: visualize kitti
     # visualizer.test_add_callback(cloud_kitti, labelfile_kitti, "kitti")
-    visualizer.test_add_callback(cloud_night, labelfile_kitti, "kitti")
+    visualizer.test_add_callback(cloud_test, labelfile_kitti, "test")
